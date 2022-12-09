@@ -1,0 +1,145 @@
+---
+title: "project"
+author: "Katie Denecke"
+date: "2022-12-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+# Load packages
+library(tidyverse)
+library(janitor) # Data cleaning package
+library(stats) # General statistics package
+library(gam) # Generalized Additive Models package
+library(MKinfer) # To run bootstrap tests 
+library(energy) # To run distance covariance or correlation tests
+library(car) # Applied regression package
+library(glmnet) # To run lasso penalized logistic regression
+library(caret) # Classification and regression training package
+library(ranger) # Random Forests package
+library(VIM) # Visualization and Imputation of Missing Values package
+library(dplyr)
+```
+
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+
+data <- read.csv("./desktop/Life Expectancy Data.csv")
+data <- data %>%
+  clean_names() %>% 
+  select(life_expectancy, alcohol, hepatitis_b, polio, diphtheria, hiv_aids) %>% 
+  mutate_all(as.numeric)
+str(data)
+```
+
+# 3. Initial exploration of data
+
+## 3.1 Handling missing data in predictor variables
+```{r message=FALSE, warning=FALSE, include=FALSE}
+library(naniar)
+library(missForest)
+# Check for any observations/rows with missing data
+sum(complete.cases(data) == FALSE) / nrow(data)    # proportion of missing data
+missing_vals <- which(complete.cases(data) == FALSE)    # rows with missing data
+# Visualization of missing values
+gg_miss_var(data, show_pct = TRUE)
+# Impute missing values in covariates
+set.seed(1001)
+data_imputed_covars <- missForest(xmis = subset(data, select = -c(life_expectancy)),
+                                  maxiter = 50)$ximp
+data_imputed <- cbind(data$life_expectancy, data_imputed_covars)
+colnames(data_imputed)[1] = "life_expectancy"
+# Plot missingness again to validate imputation results
+gg_miss_var(data_imputed, show_pct = TRUE)
+# Confirm the proportion of missingness in the response variable
+100 * sum(is.na(data$life_expectancy)) / nrow(data) # 0.3404% missing; value matches gg_miss_var plot
+```
+
+## 3.2 Train-test split dataset
+``` {r, message = FALSE, warning = FALSE}
+set.seed(1)
+rand_sample <- sample(1:nrow(data_imputed),
+                      size = 0.7 * nrow(data_imputed),
+                      replace = FALSE)
+training_data <- data_imputed[rand_sample, ]
+test_data <- data_imputed[-rand_sample, ]
+```
+
+```{r}
+library(car)
+# Simple linear regression model fitting on training data
+lm_all <- lm(life_expectancy ~ ., data = training_data)
+summary(lm_all)
+vif(lm_all)
+# Perform stepwise forward selection using AIC as selection criteria on training data
+lm_intercept_only <- lm(life_expectancy ~ 1 , data = training_data)
+summary(lm_intercept_only)
+  
+forward_AIC <- step(lm_intercept_only, scope = formula(lm_all),
+                    direction = "forward", trace = 0, k = 2)
+forward_AIC$anova
+forward_AIC$coefficients
+# Perform stepwise forward selection using BIC as selction criteria on training data
+forward_BIC <- step(lm_intercept_only, scope = formula(lm_all),
+                    direction = "forward", trace = 0, k = log(nrow(training_data)))
+forward_BIC$anova
+forward_BIC$coefficients
+anova(forward_BIC, forward_AIC)
+```
+
+
+```{r}
+```
+
+
+```{r}
+#alcohol lg
+model_lrm <- glm(as.factor(life_expectancy) ~alcohol,  family = "binomial", data=training_data)  
+
+#hepatitis_b lg
+model_lrm <- glm(as.factor(life_expectancy) ~hepatitis_b,  family = "binomial", data=training_data)  
+summary(model_lrm)
+
+#polio lg 
+model_lrm <- glm(as.factor(life_expectancy) ~polio,  family = "binomial", data=training_data)  
+summary(model_lrm)
+
+#diphtheria lg 
+model_lrm <- glm(as.factor(life_expectancy) ~diphtheria,  family = "binomial", data=training_data)  
+summary(model_lrm)
+
+#hiv_aids lg 
+model_lrm <- glm(as.factor(life_expectancy) ~hiv_aids,  family = "binomial", data=training_data)  
+summary(model_lrm)
+```
+
+
+```{r}
+#alcohol lg
+model_lrm <- glm(as.factor(life_expectancy) ~alcohol,  family = "binomial", data=test_data)  
+
+#hepatitis_b lg
+model_lrm <- glm(as.factor(life_expectancy) ~hepatitis_b,  family = "binomial", data=test_data)  
+summary(model_lrm)
+
+#polio lg 
+model_lrm <- glm(as.factor(life_expectancy) ~polio,  family = "binomial", data=test_data)  
+summary(model_lrm)
+
+#diphtheria lg 
+model_lrm <- glm(as.factor(life_expectancy) ~diphtheria,  family = "binomial", data=test_data)  
+summary(model_lrm)
+
+#hiv_aids lg 
+model_lrm <- glm(as.factor(life_expectancy) ~hiv_aids,  family = "binomial", data=test_data)  
+summary(model_lrm)
+```
+
+
+
